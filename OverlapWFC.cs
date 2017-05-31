@@ -25,6 +25,7 @@ class OverlapWFC : MonoBehaviour{
 	public GameObject output;
 	private Transform group;
     private bool undrawn = true;
+    public bool xy = false;
 
 	public static bool IsPrefabRef(UnityEngine.Object o){
 		#if UNITY_EDITOR
@@ -70,8 +71,12 @@ class OverlapWFC : MonoBehaviour{
 	public void Generate() {
 		if (training == null){Debug.Log("Can't Generate: no designated Training component");}
 		if (IsPrefabRef(training.gameObject)){
-			GameObject o = CreatePrefab(training.gameObject, new Vector3(0,99999f,0f), Quaternion.identity);
-			training = o.GetComponent<Training>();
+            GameObject o;
+            if(xy)
+                o = CreatePrefab(training.gameObject, new Vector3(0,99999f,0f), Quaternion.identity);
+            else
+                o = CreatePrefab(training.gameObject, new Vector3(0, 0f, 99999f), Quaternion.identity);
+            training = o.GetComponent<Training>();
 		}
 		if (training.sample == null){
 			training.Compile();
@@ -101,9 +106,13 @@ class OverlapWFC : MonoBehaviour{
 	void OnDrawGizmos(){
 		Gizmos.color = Color.cyan;
 		Gizmos.matrix = transform.localToWorldMatrix;
-		Gizmos.DrawWireCube(new Vector3(width*gridsize/2f-gridsize*0.5f, depth*gridsize/2f-gridsize*0.5f, 0f),
+        if (xy)
+            Gizmos.DrawWireCube(new Vector3(width*gridsize/2f-gridsize*0.5f, depth*gridsize/2f-gridsize*0.5f, 0f),
 							new Vector3(width*gridsize, depth*gridsize, gridsize));
-	}
+        else
+            Gizmos.DrawWireCube(new Vector3(width * gridsize / 2f - gridsize * 0.5f, 0, depth * gridsize / 2f - gridsize * 0.5f),
+                            new Vector3(width * gridsize, gridsize, depth * gridsize));
+    }
 
 	public void Run(){
 		if (model == null){return;}
@@ -128,7 +137,9 @@ class OverlapWFC : MonoBehaviour{
 						int v = (int)model.Sample(x, y);
 						if (v != 99 && v < training.tiles.Length){
 							Vector3 pos = new Vector3(x*gridsize, y*gridsize, 0f);
-							int rot = (int)training.RS[v];
+                            if (!xy)
+                                pos = new Vector3(x * gridsize, 0f, y * gridsize);
+                            int rot = (int)training.RS[v];
 							GameObject fab = training.tiles[v] as GameObject;
 							if (fab != null){
 								GameObject tile = (GameObject)Instantiate(fab, new Vector3() , Quaternion.identity);
@@ -136,7 +147,9 @@ class OverlapWFC : MonoBehaviour{
 								tile.transform.parent = group;
 								tile.transform.localPosition = pos;
 								tile.transform.localEulerAngles = new Vector3(0, 0, 360 - (rot * 90));
-								tile.transform.localScale = fscale;
+                                if(!xy)
+                                    tile.transform.localEulerAngles = new Vector3(0, rot*90, 0);
+                                tile.transform.localScale = fscale;
 								rendering[x,y] = tile;
 							}
 						} else
