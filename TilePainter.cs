@@ -18,6 +18,8 @@ public class TilePainter : MonoBehaviour{
 	public Vector3 cursor;
 	public bool focused = false;
 	public GameObject[,] tileobs;
+
+    public bool xy = false;
 	
 
 	int colidx = 0;
@@ -63,12 +65,22 @@ public class TilePainter : MonoBehaviour{
 		GameObject pal = new GameObject("palette");
 		pal.hideFlags = HideFlags.HideInHierarchy;
 		BoxCollider bc = pal.AddComponent<BoxCollider>();
-		bc.size = new Vector3(palette.Count*gridsize, gridsize, 0f);
-		bc.center = new Vector3((palette.Count-1f)*gridsize*0.5f, 0f, 0f);
+
+        if (xy)
+		    bc.size = new Vector3(palette.Count*gridsize, gridsize, 0f);
+        else
+            bc.size = new Vector3(palette.Count * gridsize, 0f, gridsize);
+
+        bc.center = new Vector3((palette.Count-1f)*gridsize*0.5f, 0f, 0f);
 
 		pal.transform.parent = this.gameObject.transform;
-		pal.transform.localPosition = new Vector3(0f, -gridsize*2, 0f);
-		pal.transform.rotation = transform.rotation;
+
+        if (xy)
+            pal.transform.localPosition = new Vector3(0f, -gridsize*2, 0f);
+        else
+            pal.transform.localPosition = new Vector3(0f, 0f, - gridsize * 2);
+
+        pal.transform.rotation = transform.rotation;
 
 
 		
@@ -111,8 +123,12 @@ public class TilePainter : MonoBehaviour{
 			GameObject tile = tiles.transform.GetChild(i).gameObject;
 			Vector3 tilepos = tile.transform.localPosition;
 			int X = (int)(tilepos.x / gridsize);
-			int Y = (int)(tilepos.y / gridsize);
-			if (ValidCoords(X, Y)){
+            
+            int Y = (int)(tilepos.y / gridsize);
+            if (!xy)
+                Y = (int)(tilepos.z / gridsize);
+
+            if (ValidCoords(X, Y)){
 			tileobs[X, Y] = tile; 
 			} else {
 				trash.Add(tile);
@@ -147,13 +163,23 @@ public class TilePainter : MonoBehaviour{
 	void OnValidate(){
 		_changed = true;
 		BoxCollider bounds = this.GetComponent<BoxCollider>();
-		bounds.center = new Vector3((width*gridsize)*0.5f-gridsize*0.5f, (height*gridsize)*0.5f-gridsize*0.5f, 0f);
-		bounds.size = new Vector3(width*gridsize, (height*gridsize), 0f);
+        if (xy) {
+            bounds.center = new Vector3((width * gridsize) * 0.5f - gridsize * 0.5f, (height * gridsize) * 0.5f - gridsize * 0.5f, 0f);
+            bounds.size = new Vector3(width * gridsize, (height * gridsize), 0f);
+        } else {
+            bounds.center = new Vector3((width * gridsize) * 0.5f - gridsize * 0.5f, 0f, (height * gridsize) * 0.5f - gridsize * 0.5f);
+            bounds.size = new Vector3(width * gridsize, 0f, (height * gridsize));
+        }
 	}
 
 	public Vector3 GridV3(Vector3 pos){
-		Vector3 p = transform.InverseTransformPoint(pos) + new Vector3(gridsize*0.5f,gridsize*0.5f, 0f);
-		return new Vector3((int)(p.x/gridsize), (int)(p.y/gridsize), 0);
+        if (xy) {
+            Vector3 p = transform.InverseTransformPoint(pos) + new Vector3(gridsize * 0.5f, gridsize * 0.5f, 0f);
+            return new Vector3((int)(p.x / gridsize), (int)(p.y / gridsize), 0);
+        } else {
+            Vector3 p = transform.InverseTransformPoint(pos) + new Vector3(gridsize * 0.5f, 0f, gridsize * 0.5f);
+            return new Vector3((int)(p.x / gridsize), 0, (int)(p.z / gridsize));
+        }
 	}
 
 	public bool ValidCoords(int x, int y){
@@ -172,12 +198,21 @@ public class TilePainter : MonoBehaviour{
 	}
 
 	public void Turn(){
-		if (this.ValidCoords((int)cursor.x, (int)cursor.y)){
-			GameObject o = tileobs[(int)cursor.x, (int)cursor.y];
-			if (o != null){
-				o.transform.Rotate(0f, 0f, 90f);
-			}
-		}
+        if (xy) {
+            if (this.ValidCoords((int)cursor.x, (int)cursor.y)) {
+                GameObject o = tileobs[(int)cursor.x, (int)cursor.y];
+                if (o != null) {
+                    o.transform.Rotate(0f, 0f, 90f);
+                }
+            }
+        } else {
+            if (this.ValidCoords((int)cursor.x, (int)cursor.z)) {
+                GameObject o = tileobs[(int)cursor.x, (int)cursor.z];
+                if (o != null) {
+                    o.transform.Rotate(0f, 90f, 0f);
+                }
+            }
+        }
 	}
 
 	public Vector3 Local(Vector3 p){
@@ -187,32 +222,61 @@ public class TilePainter : MonoBehaviour{
 	public void Drag(Vector3 mouse, TileLayerEditor.TileOperation op){
 		Resize();
 		if (tileobs == null){Restore();}
-		if (this.ValidCoords((int)cursor.x, (int)cursor.y)){
-			if (op == TileLayerEditor.TileOperation.Sampling){
-				UnityEngine.Object s = PrefabUtility.GetPrefabParent(tileobs[(int)cursor.x, (int)cursor.y]);
-				if (s != null){
-					color = s;
-					color_rotation = tileobs[(int)cursor.x, (int)cursor.y].transform.localRotation;
-				}
-			} else {
-				DestroyImmediate(tileobs[(int)cursor.x, (int)cursor.y]); 
-				if (op == TileLayerEditor.TileOperation.Drawing){
-					if (color == null){return;}
-					GameObject o = CreatePrefab(color, new Vector3() , color_rotation);
-					o.transform.parent = tiles.transform;
-					o.transform.localPosition = (cursor*gridsize);
-					o.transform.localRotation = color_rotation;
-					tileobs[(int)cursor.x, (int)cursor.y] = o;
-				}
-			}
-		} else {
-			if (op == TileLayerEditor.TileOperation.Sampling){
-				if (cursor.y == -1 && cursor.x >= 0 && cursor.x < palette.Count){
-					color = palette[(int)cursor.x];
-					color_rotation = Quaternion.identity;
-				}
-			}
-		}
+        if (xy) {
+            if (this.ValidCoords((int)cursor.x, (int)cursor.y)) {
+                if (op == TileLayerEditor.TileOperation.Sampling) {
+                    UnityEngine.Object s = PrefabUtility.GetPrefabParent(tileobs[(int)cursor.x, (int)cursor.y]);
+                    if (s != null) {
+                        color = s;
+                        color_rotation = tileobs[(int)cursor.x, (int)cursor.y].transform.localRotation;
+                    }
+                } else {
+                    DestroyImmediate(tileobs[(int)cursor.x, (int)cursor.y]);
+                    if (op == TileLayerEditor.TileOperation.Drawing) {
+                        if (color == null) { return; }
+                        GameObject o = CreatePrefab(color, new Vector3(), color_rotation);
+                        o.transform.parent = tiles.transform;
+                        o.transform.localPosition = (cursor * gridsize);
+                        o.transform.localRotation = color_rotation;
+                        tileobs[(int)cursor.x, (int)cursor.y] = o;
+                    }
+                }
+            } else {
+                if (op == TileLayerEditor.TileOperation.Sampling) {
+                    if (cursor.y == -1 && cursor.x >= 0 && cursor.x < palette.Count) {
+                        color = palette[(int)cursor.x];
+                        color_rotation = Quaternion.identity;
+                    }
+                }
+            }
+        } else {
+            if (this.ValidCoords((int)cursor.x, (int)cursor.z)) {
+                if (op == TileLayerEditor.TileOperation.Sampling) {
+                    UnityEngine.Object s = PrefabUtility.GetPrefabParent(tileobs[(int)cursor.x, (int)cursor.z]);
+                    if (s != null) {
+                        color = s;
+                        color_rotation = tileobs[(int)cursor.x, (int)cursor.z].transform.localRotation;
+                    }
+                } else {
+                    DestroyImmediate(tileobs[(int)cursor.x, (int)cursor.z]);
+                    if (op == TileLayerEditor.TileOperation.Drawing) {
+                        if (color == null) { return; }
+                        GameObject o = CreatePrefab(color, new Vector3(), color_rotation);
+                        o.transform.parent = tiles.transform;
+                        o.transform.localPosition = (cursor * gridsize);
+                        o.transform.localRotation = color_rotation;
+                        tileobs[(int)cursor.x, (int)cursor.z] = o;
+                    }
+                }
+            } else {
+                if (op == TileLayerEditor.TileOperation.Sampling) {
+                    if (cursor.z == -1 && cursor.x >= 0 && cursor.x < palette.Count) {
+                        color = palette[(int)cursor.x];
+                        color_rotation = Quaternion.identity;
+                    }
+                }
+            }
+        }
 	}
 
 	public void Clear(){
@@ -233,9 +297,13 @@ public class TilePainter : MonoBehaviour{
 			Gizmos.DrawRay((cursor*gridsize)+Vector3.up*-49999f, Vector3.up*99999f);
 			Gizmos.color = Color.yellow;
 		}
-
-		Gizmos.DrawWireCube( new Vector3((width*gridsize)*0.5f-gridsize*0.5f, (height*gridsize)*0.5f-gridsize*0.5f, 0f),
-			new Vector3(width*gridsize, (height*gridsize), 0f));
+        if (xy) {
+            Gizmos.DrawWireCube(new Vector3((width * gridsize) * 0.5f - gridsize * 0.5f, (height * gridsize) * 0.5f - gridsize * 0.5f, 0f),
+                new Vector3(width * gridsize, (height * gridsize), 0f));
+        } else {
+            Gizmos.DrawWireCube(new Vector3((width * gridsize) * 0.5f - gridsize * 0.5f, 0f, (height * gridsize) * 0.5f - gridsize * 0.5f),
+                new Vector3(width * gridsize, 0f, (height * gridsize)));
+        }
 	}
 	#endif
 }
