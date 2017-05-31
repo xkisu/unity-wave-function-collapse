@@ -14,8 +14,8 @@ class Training : MonoBehaviour{
 	public int[] RS = new int[0];
 	public Dictionary<string, byte> str_tile;
 	Dictionary<string, int[]> neighbors;
-	public byte[,] sample; 
-
+	public byte[,] sample;
+    public bool xy  = false;
 	public static byte Get2DByte(byte[,] ar, int x, int y){
 		return ar[x, y];
 	}
@@ -108,9 +108,13 @@ class Training : MonoBehaviour{
 		for (int i = 0; i < cnt; i++){
 			GameObject tile = this.transform.GetChild(i).gameObject;
 			Vector3 tilepos = tile.transform.localPosition;
-			
-			if ((tilepos.x > -0.55f) && (tilepos.x <= width*gridsize-0.55f) &&
-				  (tilepos.y > -0.55f) && (tilepos.y <= depth*gridsize-0.55f)){
+
+            float tileposy = tilepos.y;
+            if(!xy)
+                tileposy = tilepos.z;
+
+            if ((tilepos.x > -0.55f) && (tilepos.x <= width*gridsize-0.55f) &&
+				  (tileposy > -0.55f) && (tileposy <= depth*gridsize-0.55f)){
 				UnityEngine.Object fab = tile;
 				#if UNITY_EDITOR
 				fab = PrefabUtility.GetPrefabParent(tile);
@@ -130,8 +134,13 @@ class Training : MonoBehaviour{
 				#endif
 				int X = (int)(tilepos.x) / gridsize;
 				int Y = (int)(tilepos.y) / gridsize;
-				int R = (int)((360 - tile.transform.localEulerAngles.z)/90);
-				if (R == 4) {R = 0;};
+                if (!xy)
+                    Y = (int)(tilepos.z) / gridsize;
+
+                int R = (int)((360 - tile.transform.localEulerAngles.z)/90);
+                if (!xy)
+                    R = (int)((360 - tile.transform.localEulerAngles.y) / 90);
+                if (R == 4) {R = 0;};
 				if (!str_tile.ContainsKey(fab.name+R)){
 					int index = str_tile.Count+1;
 					str_tile.Add(fab.name+R, (byte)index);
@@ -150,14 +159,24 @@ class Training : MonoBehaviour{
 	void OnDrawGizmos(){
 		Gizmos.matrix = transform.localToWorldMatrix;
 		Gizmos.color = Color.magenta;
-		Gizmos.DrawWireCube(new Vector3((width*gridsize/2f)-gridsize*0.5f, (depth*gridsize/2f)-gridsize*0.5f, 0f),
-							new Vector3(width*gridsize, depth*gridsize, gridsize));
+
+        if (xy) {
+            Gizmos.DrawWireCube(new Vector3((width * gridsize / 2f) - gridsize * 0.5f, (depth * gridsize / 2f) - gridsize * 0.5f, 0f),
+                            new Vector3(width * gridsize, depth * gridsize, gridsize));
+        } else {
+            Gizmos.DrawWireCube(new Vector3((width * gridsize / 2f) - gridsize * 0.5f, 0f, (depth * gridsize / 2f) - gridsize * 0.5f),
+                            new Vector3(width * gridsize, gridsize, depth * gridsize));
+        }
+
 		Gizmos.color = Color.cyan;
 		for (int i = 0; i < this.transform.childCount; i++){
 			GameObject tile = this.transform.GetChild(i).gameObject;
 			Vector3 tilepos = tile.transform.localPosition;
+            float posy = tilepos.y;
+            if (!xy)
+                posy = tilepos.z;
 			if ((tilepos.x > -0.55f) && (tilepos.x <= width*gridsize-0.55f) &&
-				(tilepos.y > -0.55f) && (tilepos.y <= depth*gridsize-0.55f)){
+				(posy > -0.55f) && (posy <= depth*gridsize-0.55f)){
 				Gizmos.DrawSphere(tilepos, gridsize*0.2f);
 			}
 		}
