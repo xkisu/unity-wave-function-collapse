@@ -28,6 +28,8 @@ public class SimpleTiledWFC : MonoBehaviour{
 	public Dictionary<string, GameObject> obmap = new Dictionary<string, GameObject>();
     private bool undrawn = true;
 
+    public bool xy = false;
+
 	public void destroyChildren (){
 		foreach (Transform child in this.transform) {
      		GameObject.DestroyImmediate(child.gameObject);
@@ -57,8 +59,11 @@ public class SimpleTiledWFC : MonoBehaviour{
 	public void OnDrawGizmos(){
 		Gizmos.matrix = transform.localToWorldMatrix;
 		Gizmos.color = Color.magenta;
-		Gizmos.DrawWireCube(new Vector3(width*gridsize/2f-gridsize*0.5f, depth*gridsize/2f-gridsize*0.5f, 0f),new Vector3(width*gridsize, depth*gridsize, gridsize));
-	}
+        if(xy)
+		    Gizmos.DrawWireCube(new Vector3(width*gridsize/2f-gridsize*0.5f, depth*gridsize/2f-gridsize*0.5f, 0f),new Vector3(width*gridsize, depth*gridsize, gridsize));
+        else
+            Gizmos.DrawWireCube(new Vector3(width * gridsize / 2f - gridsize * 0.5f, 0f, depth * gridsize / 2f - gridsize * 0.5f), new Vector3(width * gridsize, gridsize, depth * gridsize));
+    }
 
 	public void Generate(){
 		obmap = new  Dictionary<string, GameObject>();
@@ -108,12 +113,17 @@ public class SimpleTiledWFC : MonoBehaviour{
 						if (fab == null){
 							continue;}
 						Vector3 pos = new Vector3(x*gridsize, y*gridsize, 0f);
-						GameObject tile = (GameObject)Instantiate(fab, new Vector3() , Quaternion.identity);
+                        if (!xy)
+                            pos = new Vector3(x * gridsize, 0f, y * gridsize);
+                        GameObject tile = (GameObject)Instantiate(fab, new Vector3() , Quaternion.identity);
 						Vector3 fscale = tile.transform.localScale;
 						tile.transform.parent = group;
 						tile.transform.localPosition = pos;
-						tile.transform.localEulerAngles = new Vector3(0, 0, 360-(rot*90));
-						tile.transform.localScale = fscale;
+                        if (xy)
+                            tile.transform.localEulerAngles = new Vector3(0, 0, 360-(rot*90));
+                        else
+                            tile.transform.localEulerAngles = new Vector3(0, rot*90, 0);
+                        tile.transform.localScale = fscale;
 						rendering[x,y] = tile;
 					} else
                     {
